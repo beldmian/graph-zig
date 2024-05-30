@@ -5,11 +5,11 @@ pub fn Graph(comptime T: type) type {
         const Self = @This();
 
         vertices: usize,
-        set_edge_fn: *const fn (self: *Self, from: usize, to: usize, weight: ?T) void,
+        set_edge_fn: *const fn (self: *Self, from: usize, to: usize, weight: ?T) anyerror!void,
         get_edge_fn: *const fn (self: *Self, from: usize, to: usize) ?T,
 
-        pub fn set_edge(self: *Self, from: usize, to: usize, weight: ?T) void {
-            self.set_edge_fn(self, from, to, weight);
+        pub fn set_edge(self: *Self, from: usize, to: usize, weight: ?T) !void {
+            try self.set_edge_fn(self, from, to, weight);
         }
 
         pub fn get_edge(self: *Self, from: usize, to: usize) ?T {
@@ -64,7 +64,7 @@ pub fn MatrixGraph(comptime T: type) type {
             };
         }
 
-        pub fn set_edge(graph: *Graph(T), from: usize, to: usize, weight: ?T) void {
+        pub fn set_edge(graph: *Graph(T), from: usize, to: usize, weight: ?T) !void {
             const self: *Self = @fieldParentPtr("graph", graph);
             self.matrix[from][to] = weight;
         }
@@ -72,6 +72,64 @@ pub fn MatrixGraph(comptime T: type) type {
         pub fn get_edge(graph: *Graph(T), from: usize, to: usize) ?T {
             const self: *Self = @fieldParentPtr("graph", graph);
             return self.matrix[from][to];
+        }
+    };
+}
+
+pub fn CSREdge(comptime T: type) type {
+    return struct {
+        from: usize,
+        to: usize,
+        weight: ?T,
+    };
+}
+
+pub fn CSRMatrixGraph(comptime T: type) type {
+    return struct {
+        const Self = @This();
+
+        graph: Graph(T),
+
+        csr_matrix: []CSREdge(T),
+        allocator: std.mem.Allocator,
+        capacity: usize = 4,
+        edge_count: usize = 0,
+
+        pub fn init(vertices: usize, allocator: std.mem.Allocator) !Self {
+            const matrix: []CSREdge(T) = try allocator.alloc(CSREdge(T), 4);
+            return Self{
+                .csr_matrix = matrix,
+                .allocator = allocator,
+                .graph = Graph(T){
+                    .set_edge_fn = set_edge,
+                    .get_edge_fn = get_edge,
+                    .vertices = vertices,
+                },
+            };
+        }
+
+        pub fn set_edge(graph: *Graph(T), from: usize, to: usize, weight: ?T) !void {
+            const self: *Self = @fieldParentPtr("graph", graph);
+            if (self.capacity == self.edge_count) {
+                self.capacity *= 2;
+                self.csr_matrix = try self.allocator.realloc(self.csr_matrix, self.capacity);
+            }
+            self.csr_matrix[self.edge_count] = CSREdge(T){
+                .from = from,
+                .to = to,
+                .weight = weight,
+            };
+            self.edge_count += 1;
+        }
+
+        pub fn get_edge(graph: *Graph(T), from: usize, to: usize) ?T {
+            const self: *Self = @fieldParentPtr("graph", graph);
+            for (self.csr_matrix) |edge| {
+                if ((edge.from == from) and (edge.to == to)) {
+                    return edge.weight;
+                }
+            }
+            return null;
         }
     };
 }
