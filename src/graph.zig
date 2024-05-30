@@ -76,6 +76,20 @@ pub fn MatrixGraph(comptime T: type) type {
     };
 }
 
+test "matrix graph basic" {
+    const allocator = std.heap.page_allocator;
+    var mg = try MatrixGraph(f16).init(4, allocator);
+    var g = &mg.graph;
+    try g.set_edge(0, 1, 127);
+    try g.set_edge(1, 2, 5);
+
+    try std.testing.expect(mg.matrix[0][1] == 127);
+    try std.testing.expect(mg.matrix[1][2] == 5);
+
+    try std.testing.expect(mg.matrix[0][1] == g.get_edge(0, 1));
+    try std.testing.expect(mg.matrix[1][2] == g.get_edge(1, 2));
+}
+
 pub fn CSREdge(comptime T: type) type {
     return struct {
         from: usize,
@@ -132,4 +146,15 @@ pub fn CSRMatrixGraph(comptime T: type) type {
             return null;
         }
     };
+}
+
+test "csr matrix graph basic" {
+    const allocator = std.heap.page_allocator;
+    var mg = try CSRMatrixGraph(f16).init(4, allocator);
+    var g = &mg.graph;
+    try g.set_edge(0, 1, 127);
+    try g.set_edge(1, 2, 5);
+
+    try std.testing.expect(127 == g.get_edge(0, 1));
+    try std.testing.expect(5 == g.get_edge(1, 2));
 }

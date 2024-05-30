@@ -1,0 +1,26 @@
+name: Test library
+on: 
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+  workflow_dispatch:
+  
+jobs:
+  ci:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.12.0
+      - name: Check zig version
+        run: zig version
+      - name: Run all tests
+        run: zig build test
+
