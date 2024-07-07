@@ -3,7 +3,7 @@ const graph = @import("./graph.zig");
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
-    var mg = try graph.CSRMatrixGraph(f16).init(10, allocator);
+    var mg = try graph.MatrixGraph(f16).init(10, allocator);
     var g = &mg.graph;
     try g.set_edge(0, 1, 127);
     try g.set_edge(1, 2, 127);
@@ -13,6 +13,10 @@ pub fn main() !void {
 
     const fw_result = try g.floyd_warshall(allocator);
     std.log.info("edge [0, 1]: {?}, fw: {}", .{ g.get_edge(0, 1), fw_result[0][5] });
+    for (fw_result) |value| {
+        allocator.free(value);
+    }
 
     allocator.free(fw_result);
+    try g.free();
 }

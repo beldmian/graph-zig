@@ -7,6 +7,7 @@ pub fn Graph(comptime T: type) type {
         vertices: usize,
         set_edge_fn: *const fn (self: *Self, from: usize, to: usize, weight: ?T) anyerror!void,
         get_edge_fn: *const fn (self: *Self, from: usize, to: usize) ?T,
+        free_fn: *const fn (self: *Self) anyerror!void,
 
         pub fn set_edge(self: *Self, from: usize, to: usize, weight: ?T) !void {
             try self.set_edge_fn(self, from, to, weight);
@@ -14,6 +15,10 @@ pub fn Graph(comptime T: type) type {
 
         pub fn get_edge(self: *Self, from: usize, to: usize) ?T {
             return self.get_edge_fn(self, from, to);
+        }
+
+        pub fn free(self: *Self) !void {
+            try self.free_fn(self);
         }
 
         pub fn floyd_warshall(self: *Self, allocator: std.mem.Allocator) ![][]T {
@@ -43,6 +48,7 @@ pub fn MatrixGraph(comptime T: type) type {
         const Self = @This();
 
         graph: Graph(T),
+        allocator: std.mem.Allocator,
 
         matrix: [][]?T,
 
@@ -56,9 +62,11 @@ pub fn MatrixGraph(comptime T: type) type {
             }
             return Self{
                 .matrix = matrix,
+                .allocator = allocator,
                 .graph = Graph(T){
                     .set_edge_fn = set_edge,
                     .get_edge_fn = get_edge,
+                    .free_fn = free,
                     .vertices = vertices,
                 },
             };
@@ -72,6 +80,11 @@ pub fn MatrixGraph(comptime T: type) type {
         pub fn get_edge(graph: *Graph(T), from: usize, to: usize) ?T {
             const self: *Self = @fieldParentPtr("graph", graph);
             return self.matrix[from][to];
+        }
+
+        pub fn free(graph: *Graph(T)) !void {
+            const self: *Self = @fieldParentPtr("graph", graph);
+            self.allocator.free(self.matrix);
         }
     };
 }
@@ -117,6 +130,7 @@ pub fn CSRMatrixGraph(comptime T: type) type {
                 .graph = Graph(T){
                     .set_edge_fn = set_edge,
                     .get_edge_fn = get_edge,
+                    .free_fn = free,
                     .vertices = vertices,
                 },
             };
@@ -144,6 +158,11 @@ pub fn CSRMatrixGraph(comptime T: type) type {
                 }
             }
             return null;
+        }
+
+        pub fn free(graph: *Graph(T)) !void {
+            const self: *Self = @fieldParentPtr("graph", graph);
+            self.allocator.free(self.csr_matrix);
         }
     };
 }
